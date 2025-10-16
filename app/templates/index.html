@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>天翼云盘签到 - Docker版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+        <!-- 头部 -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-blue-600 mb-2">
+                <i class="fas fa-cloud mr-2"></i>天翼云盘签到
+            </h1>
+            <p class="text-gray-600">Docker容器化部署版本</p>
+        </div>
+
+        <!-- 状态卡片 -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow p-4 text-center">
+                <div class="text-2xl font-bold text-blue-600" id="accountCount">0</div>
+                <div class="text-gray-600">总账号数</div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4 text-center">
+                <div class="text-2xl font-bold text-green-600" id="enabledCount">0</div>
+                <div class="text-gray-600">启用账号</div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4 text-center">
+                <div class="text-2xl font-bold text-purple-600" id="runCount">0</div>
+                <div class="text-gray-600">运行次数</div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4 text-center">
+                <div class="text-sm text-gray-600" id="lastRun">从未运行</div>
+                <div class="text-gray-600">最后运行</div>
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <div class="flex flex-wrap gap-4">
+                <button onclick="runTask()" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg flex items-center">
+                    <i class="fas fa-play mr-2"></i>立即执行签到
+                </button>
+                <button onclick="showAddAccount()" class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg flex items-center">
+                    <i class="fas fa-plus mr-2"></i>添加账号
+                </button>
+                <button onclick="showPushConfig()" class="bg-purple-500 hover:bg-purple-600 text-white px-6 py-2 rounded-lg flex items-center">
+                    <i class="fas fa-bell mr-2"></i>推送配置
+                </button>
+            </div>
+        </div>
+
+        <!-- 账号列表 -->
+        <div class="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 class="text-xl font-bold mb-4 flex items-center">
+                <i class="fas fa-users mr-2"></i>账号管理
+            </h2>
+            <div id="accountList" class="space-y-3">
+                <!-- 账号列表将通过JavaScript动态生成 -->
+            </div>
+        </div>
+
+        <!-- 运行日志 -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-bold mb-4 flex items-center">
+                <i class="fas fa-terminal mr-2"></i>运行日志
+            </h2>
+            <div id="logOutput" class="bg-gray-900 text-green-400 p-4 rounded-lg h-64 overflow-y-auto font-mono text-sm">
+                <!-- 日志内容将通过JavaScript动态更新 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加账号模态框 -->
+    <div id="addAccountModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 class="text-xl font-bold mb-4">添加账号</h3>
+            <form id="addAccountForm">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">手机号</label>
+                        <input type="text" name="username" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">密码</label>
+                        <input type="password" name="password" required 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 mt-6">
+                    <button type="button" onclick="hideAddAccount()" 
+                            class="px-4 py-2 text-gray-600 hover:text-gray-800">取消</button>
+                    <button type="submit" 
+                            class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">添加</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 推送配置模态框 -->
+    <div id="pushConfigModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 class="text-xl font-bold mb-4">推送配置</h3>
+            <form id="pushConfigForm">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">WxPusher AppToken</label>
+                        <input type="text" name="wxpusher_app_token" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="AT_xxx">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">WxPusher UIDs (用逗号分隔)</label>
+                        <input type="text" name="wxpusher_uids" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="UID_xxx,UID_yyy">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Server酱 SendKey</label>
+                        <input type="text" name="sct_key" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="SCT_xxx">
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3 mt-6">
+                    <button type="button" onclick="hidePushConfig()" 
+                            class="px-4 py-2 text-gray-600 hover:text-gray-800">取消</button>
+                    <button type="submit" 
+                            class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // 全局状态
+        let accounts = [];
+        let logContent = '等待执行...\n';
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStatus();
+            loadAccounts();
+            loadPushConfig();
+        });
+
+        // 加载状态
+        async function loadStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                if (data.success) {
+                    document.getElementById('accountCount').textContent = data.data.account_count;
+                    document.getElementById('enabledCount').textContent = data.data.enabled_accounts;
+                    document.getElementById('runCount').textContent = data.data.run_count;
+                    document.getElementById('lastRun').textContent = data.data.last_run ? 
+                        new Date(data.data.last_run).toLocaleString() : '从未运行';
+                }
+            } catch (error) {
+                console.error('加载状态失败:', error);
+            }
+        }
+
+        // 加载账号列表
+        async function loadAccounts() {
+            try {
+                const response = await fetch('/api/accounts');
+                const data = await response.json();
+                if (data.success) {
+                    accounts = data.data;
+                    renderAccounts();
+                }
+            } catch (error) {
+                console.error('加载账号失败:', error);
+            }
+        }
+
+        // 渲染账号列表
+        function renderAccounts() {
+            const container = document.getElementById('accountList');
+            if (accounts.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-4">暂无账号，请添加账号</p>';
+                return;
+            }
+
+            container.innerHTML = accounts.map(account => `
+                <div class="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                    <div class="flex items-center">
+                        <i class="fas fa-user text-gray-400 mr-3"></i>
+                        <div>
+                            <div class="font-medium">${account.username}</div>
+                            <div class="text-sm text-gray-500">${account.enabled ? '已启用' : '已禁用'}</div>
+                        </div>
+                    </div>
+                    <button onclick="deleteAccount('${account.username}')" 
+                            class="text-red-500 hover:text-red-700">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // 加载推送配置
+        async function loadPushConfig() {
+            try {
+                const response = await fetch('/api/push');
+                const data = await response.json();
+                if (data.success) {
+                    const form = document.getElementById('pushConfigForm');
+                    form.wxpusher_app_token.value = data.data.wxpusher_app_token || '';
+                    form.wxpusher_uids.value = Array.isArray(data.data.wxpusher_uids) ? 
+                        data.data.wxpusher_uids.join(',') : '';
+                    form.sct_key.value = data.data.sct_key || '';
+                }
+            } catch (error) {
+                console.error('加载推送配置失败:', error);
+            }
+        }
+
+        // 执行任务
+        async function runTask() {
+            addLog('🚀 开始执行签到任务...');
+            
+            try {
+                const response = await fetch('/api/run', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    addLog('✅ 任务执行成功！');
+                    addLog(`📊 成功签到: ${data.data.success_count}/${data.data.total_count} 个账号`);
+                    
+                    if (data.data.push_sent) {
+                        addLog('📢 推送通知已发送');
+                    }
+                    
+                    // 显示详细结果
+                    data.data.results.forEach(result => {
+                        addLog(`${result.username}: ${result.sign} | ${result.lottery}`);
+                    });
+                } else {
+                    addLog(`❌ 任务执行失败: ${data.error}`);
+                }
+            } catch (error) {
+                addLog(`❌ 请求失败: ${error.message}`);
+            }
+            
+            // 刷新状态
+            loadStatus();
+        }
+
+        // 添加日志
+        function addLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logContent += `[${timestamp}] ${message}\n`;
+            document.getElementById('logOutput').textContent = logContent;
+            document.getElementById('logOutput').scrollTop = document.getElementById('logOutput').scrollHeight;
+        }
+
+        // 显示/隐藏模态框
+        function showAddAccount() {
+            document.getElementById('addAccountModal').classList.remove('hidden');
+            document.getElementById('addAccountModal').classList.add('flex');
+        }
+
+        function hideAddAccount() {
+            document.getElementById('addAccountModal').classList.add('hidden');
+            document.getElementById('addAccountModal').classList.remove('flex');
+        }
+
+        function showPushConfig() {
+            document.getElementById('pushConfigModal').classList.remove('hidden');
+            document.getElementById('pushConfigModal').classList.add('flex');
+        }
+
+        function hidePushConfig() {
+            document.getElementById('pushConfigModal').classList.add('hidden');
+            document.getElementById('pushConfigModal').classList.remove('flex');
+        }
+
+        // 添加账号
+        document.getElementById('addAccountForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const accountData = {
+                username: formData.get('username'),
+                password: formData.get('password'),
+                enabled: true
+            };
+            
+            try {
+                const response = await fetch('/api/accounts', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(accountData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('账号添加成功！');
+                    hideAddAccount();
+                    this.reset();
+                    loadAccounts();
+                    loadStatus();
+                } else {
+                    alert('添加失败: ' + data.error);
+                }
+            } catch (error) {
+                alert('请求失败: ' + error.message);
+            }
+        });
+
+        // 更新推送配置
+        document.getElementById('pushConfigForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            const pushConfig = {
+                wxpusher_app_token: formData.get('wxpusher_app_token'),
+                wxpusher_uids: formData.get('wxpusher_uids').split(',').map(uid => uid.trim()).filter(uid => uid),
+                sct_key: formData.get('sct_key')
+            };
+            
+            try {
+                const response = await fetch('/api/push', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(pushConfig)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('推送配置更新成功！');
+                    hidePushConfig();
+                } else {
+                    alert('更新失败: ' + data.error);
+                }
+            } catch (error) {
+                alert('请求失败: ' + error.message);
+            }
+        });
+
+        // 删除账号
+        async function deleteAccount(username) {
+            if (!confirm(`确定要删除账号 ${username} 吗？`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/accounts', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('账号删除成功！');
+                    loadAccounts();
+                    loadStatus();
+                } else {
+                    alert('删除失败: ' + data.error);
+                }
+            } catch (error) {
+                alert('请求失败: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>
