@@ -1,0 +1,6 @@
+Flask==2.3.3
+requests==2.31.0
+rsa==4.9
+pycryptodome==3.18.0
+gunicorn==21.2.0
+python-dotenv==1.0.0
