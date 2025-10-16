@@ -1,0 +1,14 @@
+{
+  "accounts": [],
+  "push_config": {
+    "wxpusher_app_token": "",
+    "wxpusher_uids": [],
+    "sct_key": ""
+  },
+  "settings": {
+    "account_interval": 5,
+    "task_interval": 3
+  },
+  "last_run": null,
+  "run_count": 0
+}
